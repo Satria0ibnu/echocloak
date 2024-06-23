@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audio Steganography</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+   
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -54,6 +55,19 @@
         }
         a:hover {
             text-decoration: underline;
+        }
+
+        #uploadedImagesPreviews, #encodedImagesPreviews, #extractImagesPreviews {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        #uploadedImagesPreviews img, #encodedImagesPreviews img, #extractImagesPreviews img {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px;
         }
     </style>
 </head>

@@ -49,7 +49,7 @@ def hide_audio_in_images(audio_file, image_files):
                         modified = True
 
             if modified:
-                modified_image_name = f"/path/to/save/encoded_image_{i+1}.png"  # Adjust path as needed
+                modified_image_name = f"./outputs/encoded_image_{i+1}.png"  # Adjust path as needed
                 modified_images.append(modified_image_name)
                 image.save(modified_image_name)
 
