@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, request, send_file, jsonify
 from werkzeug.utils import secure_filename
 from stegano import hide_audio_in_images, extract_audio_from_images
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -9,6 +10,8 @@ UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
 ALLOWED_AUDIO_EXTENSIONS = {'mp3'}
 ALLOWED_IMAGE_EXTENSIONS = {'png'}
+MAX_STORAGE_TIME = timedelta(hours=24)
+MAX_TOTAL_SIZE = (1024 ** 3) * 5
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
@@ -16,12 +19,34 @@ app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 def allowed_file(filename, allowed_extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
+def cleanup_old_files():
+    now = datetime.now()
+    for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER]:
+        for file in os.listdir(folder):
+            file_path = os.path.join(folder, file)
+            if os.path.isfile(file_path):
+                file_modified = datetime.fromtimestamp(os.path.getmtime(file_path))
+                if now - file_modified > MAX_STORAGE_TIME:
+                    os.remove(file_path)
+
+def check_total_size():
+    total_size = sum(os.path.getsize(os.path.join(folder, file)) 
+                     for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER] 
+                     for file in os.listdir(folder) 
+                     if os.path.isfile(os.path.join(folder, file)))
+    return total_size < MAX_TOTAL_SIZE
+
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/hide_audio', methods=['POST'])
 def hide_audio():
+    if not check_total_size():
+        return jsonify({'error': 'Storage limit reached. Please try again later.'}), 500
+
     if 'audio' not in request.files or 'images' not in request.files:
         return jsonify({'error': 'No file part'}), 400
 
@@ -55,6 +80,9 @@ def hide_audio():
 
 @app.route('/extract_audio', methods=['POST'])
 def extract_audio():
+    if not check_total_size():
+        return jsonify({'error': 'Storage limit reached. Please try again later.'}), 500
+
     if 'images' not in request.files:
         return jsonify({'error': 'No file part'}), 400
 
@@ -88,4 +116,5 @@ def download_file(filename):
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+    cleanup_old_files()
     app.run(debug=True)
