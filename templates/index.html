@@ -42,9 +42,16 @@
             border: none;
             border-radius: 3px;
             cursor: pointer;
+            margin-right: 10px;
         }
         button:hover {
             background-color: #2980b9;
+        }
+        button.clear {
+            background-color: #e74c3c;
+        }
+        button.clear:hover {
+            background-color: #c0392b;
         }
         #hideResult, #extractResult {
             margin-top: 20px;
@@ -57,17 +64,26 @@
             text-decoration: underline;
         }
 
-        #uploadedImagesPreviews, #encodedImagesPreviews, #extractImagesPreviews {
+        #uploadedImagesPreviews, #encodedImagesPreviews, #resultImagesPreviews {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
             margin-top: 10px;
         }
 
-        #uploadedImagesPreviews img, #encodedImagesPreviews img, #extractImagesPreviews img {
+        #uploadedImagesPreviews img, #encodedImagesPreviews img, #resultImagesPreviews img {
+            max-width: 150px;
+            max-height: 150px;
             border: 1px solid #ddd;
             border-radius: 4px;
             padding: 5px;
+        }
+
+        .image-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -80,20 +96,65 @@
         <input type="file" id="audioFile" name="audio" accept=".mp3" required><br><br>
         <label for="imageFiles">Select PNG images:</label>
         <input type="file" id="imageFiles" name="images" accept=".png" multiple required><br><br>
+        <div id="uploadedImagesPreviews"></div>
         <button type="submit">Hide Audio</button>
+        <button type="button" class="clear" id="clearHideAudio">Clear</button>
     </form>
     <div id="hideResult"></div>
+    <div id="resultImagesPreviews"></div>
 
     <h2>Extract Audio from Images</h2>
     <form id="extractAudioForm" enctype="multipart/form-data">
         <label for="encodedImages">Select encoded PNG images:</label>
         <input type="file" id="encodedImages" name="images" accept=".png" multiple required><br><br>
+        <div id="encodedImagesPreviews"></div>
         <button type="submit">Extract Audio</button>
+        <button type="button" class="clear" id="clearExtractAudio">Clear</button>
     </form>
     <div id="extractResult"></div>
 
     <script>
         $(document).ready(function() {
+            function previewImages(input, previewDiv) {
+                $(previewDiv).empty();
+                if (input.files) {
+                    for (var i = 0; i < input.files.length; i++) {
+                        var reader = new FileReader();
+                        reader.onload = function(e) {
+                            $('<img>').attr('src', e.target.result).appendTo(previewDiv);
+                        }
+                        reader.readAsDataURL(input.files[i]);
+                    }
+                }
+            }
+
+            function clearFilePicker(fileInputId, previewDivId) {
+                $('#' + fileInputId).val('');
+                $('#' + previewDivId).empty();
+            }
+
+            function clearAll() {
+                clearFilePicker('audioFile', 'uploadedImagesPreviews');
+                clearFilePicker('imageFiles', 'uploadedImagesPreviews');
+                $('#hideResult').empty();
+                $('#resultImagesPreviews').empty();
+            }
+
+            $('#imageFiles').change(function() {
+                previewImages(this, '#uploadedImagesPreviews');
+            });
+
+            $('#encodedImages').change(function() {
+                previewImages(this, '#encodedImagesPreviews');
+            });
+
+            $('#clearHideAudio').click(clearAll);
+
+            $('#clearExtractAudio').click(function() {
+                clearFilePicker('encodedImages', 'encodedImagesPreviews');
+                $('#extractResult').empty();
+            });
+
             $('#hideAudioForm').submit(function(e) {
                 e.preventDefault();
                 var formData = new FormData(this);
@@ -105,8 +166,12 @@
                     processData: false,
                     success: function(response) {
                         var result = '<h3>Audio hidden successfully</h3>';
+                        $('#resultImagesPreviews').empty();
                         response.files.forEach(function(file) {
-                            result += '<a href="/download/' + file + '" download>Download encoded image</a><br>';
+                            var container = $('<div class="image-container"></div>');
+                            $('<img>').attr('src', '/download/' + file).appendTo(container);
+                            $('<a href="/download/' + file + '" download>Download encoded image</a>').appendTo(container);
+                            container.appendTo('#resultImagesPreviews');
                         });
                         $('#hideResult').html(result);
                     },
