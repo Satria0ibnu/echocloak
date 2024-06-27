@@ -1,8 +1,9 @@
 import os
+import magic
 from flask import Flask, render_template, request, send_file, jsonify
 from werkzeug.utils import secure_filename
 from stegano import hide_audio_in_images, extract_audio_from_images
-from datetime import datetime, timedelta
+from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
 
@@ -10,8 +11,6 @@ UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
 ALLOWED_AUDIO_EXTENSIONS = {'mp3'}
 ALLOWED_IMAGE_EXTENSIONS = {'png'}
-MAX_STORAGE_TIME = timedelta(hours=24)
-MAX_TOTAL_SIZE = (1024 ** 3) * 5
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
@@ -19,24 +18,17 @@ app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 def allowed_file(filename, allowed_extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
+def validate_file_type(file_path, expected_mime_type):
+    mime = magic.Magic(mime=True)
+    file_mime_type = mime.from_file(file_path)
+    return file_mime_type.startswith(expected_mime_type)
+
 def cleanup_old_files():
-    now = datetime.now()
     for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER]:
         for file in os.listdir(folder):
             file_path = os.path.join(folder, file)
             if os.path.isfile(file_path):
-                file_modified = datetime.fromtimestamp(os.path.getmtime(file_path))
-                if now - file_modified > MAX_STORAGE_TIME:
-                    os.remove(file_path)
-
-def check_total_size():
-    total_size = sum(os.path.getsize(os.path.join(folder, file)) 
-                     for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER] 
-                     for file in os.listdir(folder) 
-                     if os.path.isfile(os.path.join(folder, file)))
-    return total_size < MAX_TOTAL_SIZE
-
-
+                os.remove(file_path)
 
 @app.route('/')
 def index():
@@ -44,9 +36,6 @@ def index():
 
 @app.route('/hide_audio', methods=['POST'])
 def hide_audio():
-    if not check_total_size():
-        return jsonify({'error': 'Storage limit reached. Please try again later.'}), 500
-
     if 'audio' not in request.files or 'images' not in request.files:
         return jsonify({'error': 'No file part'}), 400
 
@@ -66,10 +55,17 @@ def hide_audio():
     audio_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(audio_file.filename))
     audio_file.save(audio_path)
 
+    if not validate_file_type(audio_path, 'audio/mpeg'):
+        os.remove(audio_path)
+        return jsonify({'error': 'Invalid audio file content'}), 400
+
     image_paths = []
     for image_file in image_files:
         image_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(image_file.filename))
         image_file.save(image_path)
+        if not validate_file_type(image_path, 'image/png'):
+            os.remove(image_path)
+            return jsonify({'error': 'Invalid image file content'}), 400
         image_paths.append(image_path)
 
     try:
@@ -80,9 +76,6 @@ def hide_audio():
 
 @app.route('/extract_audio', methods=['POST'])
 def extract_audio():
-    if not check_total_size():
-        return jsonify({'error': 'Storage limit reached. Please try again later.'}), 500
-
     if 'images' not in request.files:
         return jsonify({'error': 'No file part'}), 400
 
@@ -91,14 +84,18 @@ def extract_audio():
     if not image_files:
         return jsonify({'error': 'No selected files'}), 400
 
+    image_paths = []
     for image_file in image_files:
         if not allowed_file(image_file.filename, ALLOWED_IMAGE_EXTENSIONS):
             return jsonify({'error': 'Invalid image file format'}), 400
-
-    image_paths = []
-    for image_file in image_files:
+        
         image_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(image_file.filename))
         image_file.save(image_path)
+        
+        if not validate_file_type(image_path, 'image/png'):
+            os.remove(image_path)
+            return jsonify({'error': 'Invalid image file content'}), 400
+        
         image_paths.append(image_path)
 
     output_audio_path = os.path.join(app.config['OUTPUT_FOLDER'], 'extracted_audio.mp3')
@@ -116,5 +113,13 @@ def download_file(filename):
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+    
+    # Initial cleanup
     cleanup_old_files()
+    
+    # Set up scheduler for periodic cleanup
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(func=cleanup_old_files, trigger="interval", hours=6)
+    scheduler.start()
+    
     app.run(debug=True)

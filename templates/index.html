@@ -85,6 +85,18 @@
             align-items: center;
             margin-bottom: 10px;
         }
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -112,6 +124,7 @@
         <button type="button" class="clear" id="clearExtractAudio">Clear</button>
     </form>
     <div id="extractResult"></div>
+    <div id="toast" class="toast"></div>
 
     <script>
         $(document).ready(function() {
@@ -155,9 +168,18 @@
                 $('#extractResult').empty();
             });
 
+            function showToast(message) {
+                $('#toast').text(message).fadeIn();
+                setTimeout(function() {
+                    $('#toast').fadeOut();
+                }, 3000);
+            }
+            
+
             $('#hideAudioForm').submit(function(e) {
                 e.preventDefault();
                 var formData = new FormData(this);
+                showToast('Processing... Please wait.');
                 $.ajax({
                     url: '/hide_audio',
                     type: 'POST',
@@ -184,6 +206,7 @@
             $('#extractAudioForm').submit(function(e) {
                 e.preventDefault();
                 var formData = new FormData(this);
+                showToast('Processing... Please wait.');
                 $.ajax({
                     url: '/extract_audio',
                     type: 'POST',

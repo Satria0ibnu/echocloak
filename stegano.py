@@ -1,4 +1,3 @@
-import numpy as np
 from PIL import Image
 from pydub import AudioSegment
 
