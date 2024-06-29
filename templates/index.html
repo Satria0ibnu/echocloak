@@ -177,31 +177,41 @@
             
 
             $('#hideAudioForm').submit(function(e) {
-                e.preventDefault();
-                var formData = new FormData(this);
-                showToast('Processing... Please wait.');
-                $.ajax({
-                    url: '/hide_audio',
-                    type: 'POST',
-                    data: formData,
-                    contentType: false,
-                    processData: false,
-                    success: function(response) {
-                        var result = '<h3>Audio hidden successfully</h3>';
-                        $('#resultImagesPreviews').empty();
-                        response.files.forEach(function(file) {
-                            var container = $('<div class="image-container"></div>');
-                            $('<img>').attr('src', '/download/' + file).appendTo(container);
-                            $('<a href="/download/' + file + '" download>Download encoded image</a>').appendTo(container);
-                            container.appendTo('#resultImagesPreviews');
-                        });
-                        $('#hideResult').html(result);
-                    },
-                    error: function(xhr) {
-                        $('#hideResult').html('<h3>Error: ' + xhr.responseJSON.error + '</h3>');
-                    }
-                });
+            e.preventDefault();
+            var formData = new FormData(this);
+            showToast('Processing... Please wait.');
+            $.ajax({
+                url: '/hide_audio',
+                type: 'POST',
+                data: formData,
+                contentType: false,
+                processData: false,
+                success: function(response) {
+                    var result = '<h3>Audio hidden successfully</h3>';
+                    $('#resultImagesPreviews').empty();
+                    response.files.forEach(function(file, index) {
+                        var container = $('<div class="image-container"></div>');
+                        // Add a unique timestamp to force image refresh
+                        var timestamp = new Date().getTime();
+                        $('<img>')
+                            .attr('src', '/download/' + file + '?t=' + timestamp)
+                            .attr('alt', 'Encoded Image ' + (index + 1))
+                            .appendTo(container);
+                        $('<a>')
+                            .attr('href', '/download/' + file)
+                            .attr('download', '')
+                            .text('Download encoded image ' + (index + 1))
+                            .appendTo(container);
+                        container.appendTo('#resultImagesPreviews');
+                    });
+                    $('#hideResult').html(result);
+                },
+                error: function(xhr) {
+                    $('#hideResult').html('<h3>Error: ' + xhr.responseJSON.error + '</h3>');
+                    $('#resultImagesPreviews').empty();
+                }
             });
+        });
 
             $('#extractAudioForm').submit(function(e) {
                 e.preventDefault();

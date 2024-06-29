@@ -122,8 +122,10 @@ def extract_audio_from_images(image_files, output_file, end_signal_length=100):
             channels=channels
         )
 
-        audio_segment.export(output_file, format="flac")
+        output_file = output_file.rsplit('.', 1)[0] + '.mp3'  # Ensure .mp3 extension
+        audio_segment.export(output_file, format="mp3")
         print("Audio extracted successfully.")
+        return output_file
     except Exception as e:
         print(f"An error occurred: {e}")
 

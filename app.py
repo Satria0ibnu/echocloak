@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
-ALLOWED_AUDIO_EXTENSIONS = {'mp3'}
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'flac'}
 ALLOWED_IMAGE_EXTENSIONS = {'png'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -18,10 +18,10 @@ app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 def allowed_file(filename, allowed_extensions):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
-def validate_file_type(file_path, expected_mime_type):
+def validate_file_type(file_path, expected_mime_types):
     mime = magic.Magic(mime=True)
     file_mime_type = mime.from_file(file_path)
-    return file_mime_type.startswith(expected_mime_type)
+    return any(file_mime_type.startswith(expected_type) for expected_type in expected_mime_types)
 
 def cleanup_old_files():
     for folder in [UPLOAD_FOLDER, OUTPUT_FOLDER]:
@@ -54,8 +54,8 @@ def hide_audio():
 
     audio_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(audio_file.filename))
     audio_file.save(audio_path)
-
-    if not validate_file_type(audio_path, 'audio/mpeg'):
+    
+    if not validate_file_type(audio_path, ['audio/mpeg', 'audio/flac']):
         os.remove(audio_path)
         return jsonify({'error': 'Invalid audio file content'}), 400
 
@@ -70,9 +70,13 @@ def hide_audio():
 
     try:
         modified_images = hide_audio_in_images(audio_path, image_paths)
+        if not modified_images:
+            return jsonify({'error': 'The provided images are not enough to hide the entire audio. You need more image(s).'}), 400
         return jsonify({'message': 'Audio hidden successfully', 'files': modified_images}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e)}), 400 
+    
+    
 
 @app.route('/extract_audio', methods=['POST'])
 def extract_audio():
@@ -101,10 +105,13 @@ def extract_audio():
     output_audio_path = os.path.join(app.config['OUTPUT_FOLDER'], 'extracted_audio.mp3')
 
     try:
-        extract_audio_from_images(image_paths, output_audio_path)
+        output_audio_path = extract_audio_from_images(image_paths, output_audio_path)
         return jsonify({'message': 'Audio extracted successfully', 'file': output_audio_path}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+    
+    
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
@@ -119,7 +126,7 @@ if __name__ == '__main__':
     
     # Set up scheduler for periodic cleanup
     scheduler = BackgroundScheduler()
-    scheduler.add_job(func=cleanup_old_files, trigger="interval", hours=6)
+    scheduler.add_job(func=cleanup_old_files, trigger="interval", hours=3)
     scheduler.start()
     
     app.run(debug=True)
