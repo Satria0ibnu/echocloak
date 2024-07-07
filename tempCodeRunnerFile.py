@@ -74,7 +74,9 @@ def hide_audio():
             return jsonify({'error': 'The provided images are not enough to hide the entire audio. You need more image(s).'}), 400
         return jsonify({'message': 'Audio hidden successfully', 'files': modified_images}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': str(e)}), 400 
+    
+    
 
 @app.route('/extract_audio', methods=['POST'])
 def extract_audio():
@@ -108,6 +110,9 @@ def extract_audio():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+    
+    
+
 @app.route('/download/<path:filename>')
 def download_file(filename):
     return send_file(filename, as_attachment=True)
@@ -116,8 +121,10 @@ if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     
+    # Initial cleanup
     cleanup_old_files()
     
+    # Set up scheduler for periodic cleanup
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=cleanup_old_files, trigger="interval", hours=3)
     scheduler.start()

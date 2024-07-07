@@ -63,14 +63,12 @@
         a:hover {
             text-decoration: underline;
         }
-
         #uploadedImagesPreviews, #encodedImagesPreviews, #resultImagesPreviews {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
             margin-top: 10px;
         }
-
         #uploadedImagesPreviews img, #encodedImagesPreviews img, #resultImagesPreviews img {
             max-width: 150px;
             max-height: 150px;
@@ -78,7 +76,6 @@
             border-radius: 4px;
             padding: 5px;
         }
-
         .image-container {
             display: flex;
             flex-direction: column;
@@ -97,12 +94,22 @@
             z-index: 1000;
             display: none;
         }
+        .info {
+            background-color: #f0f8ff;
+            border: 1px solid #b0d4ff;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
     <h1>Audio Steganography</h1>
 
     <h2>Hide Audio in Images</h2>
+    <div class="info">
+        Note: The program only uses images that are needed. If you input many images, some may not be used for embedding.
+    </div>
     <form id="hideAudioForm" enctype="multipart/form-data">
         <label for="audioFile">Select MP3 file:</label>
         <input type="file" id="audioFile" name="audio" accept=".mp3" required><br><br>
@@ -116,6 +123,9 @@
     <div id="resultImagesPreviews"></div>
 
     <h2>Extract Audio from Images</h2>
+    <div class="info">
+        Important: Make sure to input only images that have embedded audio. Unnecessary image input will result in lower quality audio extraction.
+    </div>
     <form id="extractAudioForm" enctype="multipart/form-data">
         <label for="encodedImages">Select encoded PNG images:</label>
         <input type="file" id="encodedImages" name="images" accept=".png" multiple required><br><br>
@@ -174,44 +184,42 @@
                     $('#toast').fadeOut();
                 }, 3000);
             }
-            
 
             $('#hideAudioForm').submit(function(e) {
-            e.preventDefault();
-            var formData = new FormData(this);
-            showToast('Processing... Please wait.');
-            $.ajax({
-                url: '/hide_audio',
-                type: 'POST',
-                data: formData,
-                contentType: false,
-                processData: false,
-                success: function(response) {
-                    var result = '<h3>Audio hidden successfully</h3>';
-                    $('#resultImagesPreviews').empty();
-                    response.files.forEach(function(file, index) {
-                        var container = $('<div class="image-container"></div>');
-                        // Add a unique timestamp to force image refresh
-                        var timestamp = new Date().getTime();
-                        $('<img>')
-                            .attr('src', '/download/' + file + '?t=' + timestamp)
-                            .attr('alt', 'Encoded Image ' + (index + 1))
-                            .appendTo(container);
-                        $('<a>')
-                            .attr('href', '/download/' + file)
-                            .attr('download', '')
-                            .text('Download encoded image ' + (index + 1))
-                            .appendTo(container);
-                        container.appendTo('#resultImagesPreviews');
-                    });
-                    $('#hideResult').html(result);
-                },
-                error: function(xhr) {
-                    $('#hideResult').html('<h3>Error: ' + xhr.responseJSON.error + '</h3>');
-                    $('#resultImagesPreviews').empty();
-                }
+                e.preventDefault();
+                var formData = new FormData(this);
+                showToast('Processing... Please wait.');
+                $.ajax({
+                    url: '/hide_audio',
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function(response) {
+                        var result = '<h3>Audio hidden successfully</h3>';
+                        $('#resultImagesPreviews').empty();
+                        response.files.forEach(function(file, index) {
+                            var container = $('<div class="image-container"></div>');
+                            var timestamp = new Date().getTime();
+                            $('<img>')
+                                .attr('src', '/download/' + file + '?t=' + timestamp)
+                                .attr('alt', 'Encoded Image ' + (index + 1))
+                                .appendTo(container);
+                            $('<a>')
+                                .attr('href', '/download/' + file)
+                                .attr('download', '')
+                                .text('Download encoded image ' + (index + 1))
+                                .appendTo(container);
+                            container.appendTo('#resultImagesPreviews');
+                        });
+                        $('#hideResult').html(result);
+                    },
+                    error: function(xhr) {
+                        $('#hideResult').html('<h3>Error: ' + xhr.responseJSON.error + '</h3>');
+                        $('#resultImagesPreviews').empty();
+                    }
+                });
             });
-        });
 
             $('#extractAudioForm').submit(function(e) {
                 e.preventDefault();

@@ -3,7 +3,7 @@ from pydub import AudioSegment
 
 def compress_audio(audio_file):
     audio = AudioSegment.from_file(audio_file)
-    compressed_audio = audio.set_sample_width(2)  # Set sample width to 2 bytes
+    compressed_audio = audio.set_sample_width(2)
     return compressed_audio, compressed_audio.frame_rate
 
 def add_end_signal(audio_data, signal_length=100):
@@ -48,9 +48,12 @@ def hide_audio_in_images(audio_file, image_files):
                         modified = True
 
             if modified:
-                modified_image_name = f"./outputs/encoded_image_{i+1}.png"  # Adjust path as needed
+                modified_image_name = f"./outputs/encoded_image_{i+1}.png"
                 modified_images.append(modified_image_name)
                 image.save(modified_image_name)
+
+            if audio_index >= audio_len:
+                break
 
         if audio_index < audio_len:
             raise ValueError("The provided images are not enough to hide the entire audio. You need more image(s).")
@@ -122,24 +125,9 @@ def extract_audio_from_images(image_files, output_file, end_signal_length=100):
             channels=channels
         )
 
-        output_file = output_file.rsplit('.', 1)[0] + '.mp3'  # Ensure .mp3 extension
+        output_file = output_file.rsplit('.', 1)[0] + '.mp3'
         audio_segment.export(output_file, format="mp3")
         print("Audio extracted successfully.")
         return output_file
     except Exception as e:
         print(f"An error occurred: {e}")
-
-
-def example_hide_audio(audio_path, image_paths):
-    try:
-        modified_images = hide_audio_in_images(audio_path, image_paths)
-        return modified_images
-    except Exception as e:
-        print(f"An error occurred during the hiding process: {e}")
-        return []
-
-def example_extract_audio(image_paths, output_audio_path):
-    try:
-        extract_audio_from_images(image_paths, output_audio_path)
-    except Exception as e:
-        print(f"An error occurred during the extraction process: {e}")
