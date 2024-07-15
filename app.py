@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
-ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'flac'}
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'flac', 'ogg'}
 ALLOWED_IMAGE_EXTENSIONS = {'png'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -55,7 +55,7 @@ def hide_audio():
     audio_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(audio_file.filename))
     audio_file.save(audio_path)
     
-    if not validate_file_type(audio_path, ['audio/mpeg', 'audio/flac']):
+    if not validate_file_type(audio_path, ['audio/']):
         os.remove(audio_path)
         return jsonify({'error': 'Invalid audio file content'}), 400
 
@@ -63,7 +63,7 @@ def hide_audio():
     for image_file in image_files:
         image_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(image_file.filename))
         image_file.save(image_path)
-        if not validate_file_type(image_path, 'image/png'):
+        if not validate_file_type(image_path, ['image/png']):
             os.remove(image_path)
             return jsonify({'error': 'Invalid image file content'}), 400
         image_paths.append(image_path)
@@ -71,10 +71,12 @@ def hide_audio():
     try:
         modified_images = hide_audio_in_images(audio_path, image_paths)
         if not modified_images:
-            return jsonify({'error': 'The provided images are not enough to hide the entire audio. You need more image(s).'}), 400
+            return jsonify({'error': 'Failed to hide audio in images'}), 400
         return jsonify({'message': 'Audio hidden successfully', 'files': modified_images}), 200
-    except Exception as e:
+    except ValueError as e:
         return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'An unexpected error occurred: {str(e)}'}), 500
 
 @app.route('/extract_audio', methods=['POST'])
 def extract_audio():
@@ -94,7 +96,7 @@ def extract_audio():
         image_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(image_file.filename))
         image_file.save(image_path)
         
-        if not validate_file_type(image_path, 'image/png'):
+        if not validate_file_type(image_path, ['image/png']):
             os.remove(image_path)
             return jsonify({'error': 'Invalid image file content'}), 400
         
@@ -104,6 +106,8 @@ def extract_audio():
 
     try:
         output_audio_path = extract_audio_from_images(image_paths, output_audio_path)
+        if not output_audio_path:
+            return jsonify({'error': 'Failed to extract audio from images'}), 400
         return jsonify({'message': 'Audio extracted successfully', 'file': output_audio_path}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
