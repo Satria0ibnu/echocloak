@@ -1,12 +1,46 @@
+import math
+import struct
 from PIL import Image
 from pydub import AudioSegment
-import struct
+
+def calculate_required_pixels(audio_file_path, bits_per_pixel=8):
+    audio = AudioSegment.from_file(audio_file_path)
+    audio_data = audio.raw_data
+
+    # Add end signal (100 bytes of 0xFF) and audio properties
+    signal_length = 100
+    audio_data_with_signal = audio_data + (b'\xff' * signal_length)
+    
+    audio_properties = struct.pack('>IHHI', audio.frame_rate, audio.sample_width, audio.channels, len(audio_data_with_signal))
+    audio_data_with_properties = audio_properties + audio_data_with_signal
+
+    # Calculate total bits needed
+    total_bits = len(audio_data_with_properties) * 8
+
+    # Calculate required pixels
+    required_pixels = math.ceil(total_bits / bits_per_pixel)
+
+    return required_pixels
+
+def get_total_image_pixels(image_files):
+    total_pixels = 0
+    for image_file in image_files:
+        with Image.open(image_file) as img:
+            width, height = img.size
+            total_pixels += width * height
+    return total_pixels
 
 def add_end_signal(audio_data, signal_length=100):
     return audio_data + (b'\xff' * signal_length)
 
 def hide_audio_in_images(audio_file, image_files):
     try:
+        required_pixels = calculate_required_pixels(audio_file)
+        total_image_pixels = get_total_image_pixels(image_files)
+
+        if total_image_pixels < required_pixels:
+            raise ValueError(f"Not enough image capacity. Need {required_pixels} pixels, but only {total_image_pixels} available.")
+
         audio = AudioSegment.from_file(audio_file)
         audio_data = add_end_signal(audio.raw_data)
         
@@ -25,8 +59,6 @@ def hide_audio_in_images(audio_file, image_files):
                 image = image.convert('RGBA')
             pixels = image.load()
             width, height = image.size
-
-            image_capacity = width * height * 3 // 8 - 1
 
             # Store image index in the alpha channel of the first pixel
             r, g, b, a = pixels[0, 0]
@@ -55,17 +87,11 @@ def hide_audio_in_images(audio_file, image_files):
             if audio_index >= audio_len:
                 break
 
-        if audio_index < audio_len:
-            raise ValueError(f"The provided images are not enough to hide the entire audio. "
-                             f"You need approximately {(audio_len // image_capacity) + 1} images.")
-
         print("Audio hidden successfully in the images.")
+        return modified_images
     except Exception as e:
         print(f"An error occurred: {e}")
-        return []
-
-    return modified_images
-
+        raise
 
 def extract_audio_from_images(image_files, output_file, end_signal_length=100):
     try:
@@ -133,4 +159,4 @@ def extract_audio_from_images(image_files, output_file, end_signal_length=100):
         return output_file
     except Exception as e:
         print(f"An error occurred: {e}")
-        return None
+        raise
