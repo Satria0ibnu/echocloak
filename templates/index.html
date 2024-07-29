@@ -139,110 +139,124 @@
 
     <script>
         $(document).ready(function() {
-            function previewImages(input, previewDiv) {
-                $(previewDiv).empty();
-                if (input.files) {
-                    for (var i = 0; i < input.files.length; i++) {
-                        var reader = new FileReader();
-                        reader.onload = function(e) {
-                            $('<img>').attr('src', e.target.result).appendTo(previewDiv);
-                        }
-                        reader.readAsDataURL(input.files[i]);
-                    }
+    function previewImages(input, previewDiv) {
+        $(previewDiv).empty();
+        if (input.files) {
+            for (var i = 0; i < input.files.length; i++) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    $('<img>').attr('src', e.target.result).appendTo(previewDiv);
                 }
+                reader.readAsDataURL(input.files[i]);
             }
+        }
+    }
 
-            function clearFilePicker(fileInputId, previewDivId) {
-                $('#' + fileInputId).val('');
-                $('#' + previewDivId).empty();
-            }
+    function clearFilePicker(fileInputId, previewDivId) {
+        $('#' + fileInputId).val('');
+        $('#' + previewDivId).empty();
+    }
 
-            function clearAll() {
-                clearFilePicker('audioFile', 'uploadedImagesPreviews');
-                clearFilePicker('imageFiles', 'uploadedImagesPreviews');
-                $('#hideResult').empty();
+    function clearAll() {
+        clearFilePicker('audioFile', 'uploadedImagesPreviews');
+        clearFilePicker('imageFiles', 'uploadedImagesPreviews');
+        $('#hideResult').empty();
+        $('#resultImagesPreviews').empty();
+    }
+
+    $('#imageFiles').change(function() {
+        previewImages(this, '#uploadedImagesPreviews');
+    });
+
+    $('#encodedImages').change(function() {
+        previewImages(this, '#encodedImagesPreviews');
+    });
+
+    $('#clearHideAudio').click(clearAll);
+
+    $('#clearExtractAudio').click(function() {
+        clearFilePicker('encodedImages', 'encodedImagesPreviews');
+        $('#extractResult').empty();
+    });
+
+    function showToast(message, isError = false) {
+        $('#toast').text(message)
+            .removeClass('success error')
+            .addClass(isError ? 'error' : 'success')
+            .fadeIn();
+        setTimeout(function() {
+            $('#toast').fadeOut();
+        }, 3000);
+    }
+
+    function handleAjaxError(xhr, resultDiv) {
+        let errorMessage = 'An error occurred.';
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+            errorMessage = xhr.responseJSON.error;
+        }
+        $(resultDiv).html('<h3>Error: ' + errorMessage + '</h3>');
+        showToast(errorMessage, true);
+    }
+
+    $('#hideAudioForm').submit(function(e) {
+        e.preventDefault();
+        var formData = new FormData(this);
+        showToast('Processing... Please wait.');
+        $.ajax({
+            url: '/hide_audio',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            success: function(response) {
+                var result = '<h3>' + response.message + '</h3>';
+                $('#resultImagesPreviews').empty();
+                response.files.forEach(function(file, index) {
+                    var container = $('<div class="image-container"></div>');
+                    var timestamp = new Date().getTime();
+                    $('<img>')
+                        .attr('src', '/download/' + file + '?t=' + timestamp)
+                        .attr('alt', 'Encoded Image ' + (index + 1))
+                        .appendTo(container);
+                    $('<a>')
+                        .attr('href', '/download/' + file)
+                        .attr('download', '')
+                        .text('Download encoded image ' + (index + 1))
+                        .appendTo(container);
+                    container.appendTo('#resultImagesPreviews');
+                });
+                $('#hideResult').html(result);
+                showToast(response.message);
+            },
+            error: function(xhr) {
+                handleAjaxError(xhr, '#hideResult');
                 $('#resultImagesPreviews').empty();
             }
-
-            $('#imageFiles').change(function() {
-                previewImages(this, '#uploadedImagesPreviews');
-            });
-
-            $('#encodedImages').change(function() {
-                previewImages(this, '#encodedImagesPreviews');
-            });
-
-            $('#clearHideAudio').click(clearAll);
-
-            $('#clearExtractAudio').click(function() {
-                clearFilePicker('encodedImages', 'encodedImagesPreviews');
-                $('#extractResult').empty();
-            });
-
-            function showToast(message) {
-                $('#toast').text(message).fadeIn();
-                setTimeout(function() {
-                    $('#toast').fadeOut();
-                }, 3000);
-            }
-
-            $('#hideAudioForm').submit(function(e) {
-                e.preventDefault();
-                var formData = new FormData(this);
-                showToast('Processing... Please wait.');
-                $.ajax({
-                    url: '/hide_audio',
-                    type: 'POST',
-                    data: formData,
-                    contentType: false,
-                    processData: false,
-                    success: function(response) {
-                        var result = '<h3>Audio hidden successfully</h3>';
-                        $('#resultImagesPreviews').empty();
-                        response.files.forEach(function(file, index) {
-                            var container = $('<div class="image-container"></div>');
-                            var timestamp = new Date().getTime();
-                            $('<img>')
-                                .attr('src', '/download/' + file + '?t=' + timestamp)
-                                .attr('alt', 'Encoded Image ' + (index + 1))
-                                .appendTo(container);
-                            $('<a>')
-                                .attr('href', '/download/' + file)
-                                .attr('download', '')
-                                .text('Download encoded image ' + (index + 1))
-                                .appendTo(container);
-                            container.appendTo('#resultImagesPreviews');
-                        });
-                        $('#hideResult').html(result);
-                    },
-                    error: function(xhr) {
-                        $('#hideResult').html('<h3>Error: ' + xhr.responseJSON.error + '</h3>');
-                        $('#resultImagesPreviews').empty();
-                    }
-                });
-            });
-
-            $('#extractAudioForm').submit(function(e) {
-                e.preventDefault();
-                var formData = new FormData(this);
-                showToast('Processing... Please wait.');
-                $.ajax({
-                    url: '/extract_audio',
-                    type: 'POST',
-                    data: formData,
-                    contentType: false,
-                    processData: false,
-                    success: function(response) {
-                        var result = '<h3>Audio extracted successfully</h3>';
-                        result += '<a href="/download/' + response.file + '" download>Download extracted audio</a>';
-                        $('#extractResult').html(result);
-                    },
-                    error: function(xhr) {
-                        $('#extractResult').html('<h3>Error: ' + xhr.responseJSON.error + '</h3>');
-                    }
-                });
-            });
         });
+    });
+
+    $('#extractAudioForm').submit(function(e) {
+        e.preventDefault();
+        var formData = new FormData(this);
+        showToast('Processing... Please wait.');
+        $.ajax({
+            url: '/extract_audio',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            success: function(response) {
+                var result = '<h3>' + response.message + '</h3>';
+                result += '<a href="/download/' + response.file + '" download>Download extracted audio</a>';
+                $('#extractResult').html(result);
+                showToast(response.message);
+            },
+            error: function(xhr) {
+                handleAjaxError(xhr, '#extractResult');
+            }
+        });
+    });
+});
     </script>
 </body>
 </html>
