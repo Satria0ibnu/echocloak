@@ -10,8 +10,7 @@ def hide_audio_in_images(audio_file, image_files):
         audio = AudioSegment.from_file(audio_file)
         audio_data = add_end_signal(audio.raw_data)
         
-        audio_properties = struct.pack('>IHHI', audio.frame_rate, audio.sample_width, 
-                                       audio.channels, len(audio_data))
+        audio_properties = struct.pack('>IHHI', audio.frame_rate, audio.sample_width, audio.channels, len(audio_data))
         audio_data_with_properties = audio_properties + audio_data
 
         audio_len = len(audio_data_with_properties)
@@ -44,7 +43,7 @@ def hide_audio_in_images(audio_file, image_files):
                         r = (r & 0xF8) | ((audio_byte & 0xE0) >> 5)
                         g = (g & 0xF8) | ((audio_byte & 0x1C) >> 2)
                         b = (b & 0xF8) | (audio_byte & 0x03)
-                        pixels[x, y] = (r, g, b, a)  # Preserve alpha
+                        pixels[x, y] = (r, g, b, a)  
                         audio_index += 1
                         modified = True
 
@@ -113,6 +112,13 @@ def extract_audio_from_images(image_files, output_file, end_signal_length=100):
 
         frame_rate, sample_width, channels, data_length = struct.unpack('>IHHI', audio_data_with_properties[:12])
         audio_data = audio_data_with_properties[12:12+data_length]
+
+        # Check if the data length is a multiple of (sample_width * channels)
+        frame_size = sample_width * channels
+        if len(audio_data) % frame_size != 0:
+            padding_length = frame_size - (len(audio_data) % frame_size)
+            audio_data += b'\x00' * padding_length
+            print(f"Warning: Audio data padded with {padding_length} zero bytes to match frame size.")
 
         audio_segment = AudioSegment(
             data=bytes(audio_data),
